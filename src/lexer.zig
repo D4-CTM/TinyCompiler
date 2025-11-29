@@ -10,15 +10,13 @@ pub const TokenType = enum(u8) {
     MULTIPLY,
     ADD,
     SUBTRACT,
-
     EQUAL,
     NOT_EQUAL,
     EQUAL_GREATER,
     EQUAL_LESSER,
 
     COMMENT,
-    START_BLOCK_COMMENT,
-    END_BLOCK_COMMENT,
+    BLOCK_COMMENT,
 
     ASSIGN,
     INTEGER,
@@ -36,7 +34,7 @@ pub const Token = struct {
     Line: usize,
 
     pub fn logValues(this: Token) void {
-        log("line {d}: {s} -> {?s} ", .{ this.Line, @tagName(this.TKWord), this.Value});
+        log("line {d}: {s} -> {?s} ", .{ this.Line, @tagName(this.TKWord), this.Value });
     }
 };
 
@@ -44,28 +42,73 @@ pub const Lexer = struct {
     Reader: Reader,
     Line: usize = 1,
 
-    fn consumeChar(this: *Lexer) !?u8 {
+    /// Consumes the next char in the file. Returns null only if at EOF
+    fn consume(this: *Lexer) !?u8 {
         if (this.Reader.atEnd()) return null;
 
         var c: [1]u8 = undefined;
-        if (try this.Reader.interface.readSliceShort(&c) == 0) return null;
+        _ = try this.Reader.interface.readSliceShort(&c);
         return c[0];
+    }
+
+    /// Peeks in the file and searches for the char in {currentPos + offset}.
+    fn peek(this: *Lexer, offset: usize) !?u8 {
+        const size = try this.Reader.file.getEndPos();
+        const offsetPos = this.Reader.logicalPos() + offset;
+        if (size - offsetPos == 0) return null;
+
+        const cont = try this.Reader.interface.peek(offset);
+        return cont[offset - 1];
+    }
+
+    /// Performed ideally after a `peek`
+    fn toss(this: *Lexer, offset: usize) void {
+        this.Reader.interface.toss(offset);
     }
 
     /// Returns:
     /// - usize > 0: discarded bytes from the file until delimeter
-    /// - usize == 0: it stopped do to finding the EOF
+    /// - usize == 0: it was at EOF
     /// exception: ReaderFailed
     fn skipLine(this: *Lexer) !usize {
-        return try this.Reader.interface.discardDelimiterLimit('\n', .unlimited);
+        this.Line += 1;
+        return try this.Reader.interface.discardDelimiterInclusive('\n');
+    }
+
+    fn skipBlockComment(this: *Lexer) !?Token {
+        while (try this.consume()) |c| {
+            switch (c) {
+                '\n' => {
+                    this.Line += 1;
+                    continue;
+                },
+                '*' => if (try this.peek(1)) |c1| switch (c1) {
+                    '\n' => {
+                        this.Line += 1;
+                        this.toss(1);
+                        continue;
+                    },
+                    '/' => {
+                        this.toss(1);
+                        return this.simpleToken(.BLOCK_COMMENT);
+                    },
+                    else => continue,
+                },
+                else => continue,
+            }
+        }
+        return error.CommentNotClosed;
     }
 
     fn simpleToken(this: *Lexer, TKW: TokenType) Token {
-        return Token{ .Line = this.Line, .TKWord = TKW };
+        return Token{
+            .Line = this.Line,
+            .TKWord = TKW,
+        };
     }
 
     pub fn getNextToken(this: *Lexer) !?Token {
-        while (try this.consumeChar()) |c| {
+        while (try this.consume()) |c| {
             if (c == ' ' or c == '\t') continue;
             if (c == '\n') {
                 this.Line += 1;
@@ -74,7 +117,7 @@ pub const Lexer = struct {
 
             return switch (c) {
                 '*' => this.simpleToken(.MULTIPLY),
-                '/' => if (try this.consumeChar()) |c1| switch (c1) {
+                '/' => if (try this.consume()) |c1| switch (c1) {
                     '\n' => error.IllegalNewLine,
                     '/' => {
                         if (try this.skipLine() == 0) {
@@ -82,16 +125,19 @@ pub const Lexer = struct {
                         }
                         return this.simpleToken(.COMMENT);
                     },
+                    '*' => return try this.skipBlockComment(),
                     else => this.simpleToken(.DEVIDE),
                 } else null,
                 '+' => this.simpleToken(.ADD),
                 '-' => this.simpleToken(.SUBTRACT),
-                '=' => if (try this.consumeChar()) |c1| switch (c1) {
+                '=' => if (try this.consume()) |c1| switch (c1) {
                     '\n' => error.IllegalNewLine,
-                    '=' => this.simpleToken(.EQUAL),
-                    else => this.simpleToken(.ASSIGN)
+                    '=' => return this.simpleToken(.EQUAL),
+                    else => {
+                        return this.simpleToken(.ASSIGN);
+                    },
                 } else null,
-                else => null
+                else => null,
             };
         }
         return null;

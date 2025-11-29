@@ -8,7 +8,7 @@ pub fn main() !void {
     var file = try std.fs.cwd().openFile("./test.txt", .{ .mode = .read_only });
     defer file.close();
 
-    var buf: [1]u8 = undefined;
+    var buf: [10]u8 = undefined;
     const reader = file.reader(&buf);
     var lexer = Lexer{
         .Reader = reader
