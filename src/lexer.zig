@@ -10,17 +10,23 @@ pub const TokenType = enum(u8) {
     MULTIPLY,
     ADD,
     SUBTRACT,
+
     EQUAL,
-    NOT_EQUAL,
+    DISTINCT, // [!=] 
+    GREATER,
     EQUAL_GREATER,
+    LESSER,
     EQUAL_LESSER,
 
     COMMENT,
     BLOCK_COMMENT,
 
     ASSIGN,
-    INTEGER,
-    FLOAT,
+    INTEGER, // todo
+    FLOAT, // todo
+
+    IF, // todo
+    WHILE, // todo
 
     IDENTIFIER,
 };
@@ -117,25 +123,43 @@ pub const Lexer = struct {
 
             return switch (c) {
                 '*' => this.simpleToken(.MULTIPLY),
-                '/' => if (try this.consume()) |c1| switch (c1) {
+                '/' => if (try this.consume()) |c1| return switch (c1) {
                     '\n' => error.IllegalNewLine,
-                    '/' => {
+                    '/' => value: {
                         if (try this.skipLine() == 0) {
-                            return null;
+                            break :value null;
                         }
-                        return this.simpleToken(.COMMENT);
+                        break :value this.simpleToken(.COMMENT);
                     },
-                    '*' => return try this.skipBlockComment(),
+                    '*' => try this.skipBlockComment(),
                     else => this.simpleToken(.DEVIDE),
                 } else null,
                 '+' => this.simpleToken(.ADD),
                 '-' => this.simpleToken(.SUBTRACT),
-                '=' => if (try this.consume()) |c1| switch (c1) {
+                '=' => if (try this.consume()) |c1| return switch (c1) {
                     '\n' => error.IllegalNewLine,
-                    '=' => return this.simpleToken(.EQUAL),
-                    else => {
-                        return this.simpleToken(.ASSIGN);
+                    '=' => this.simpleToken(.EQUAL),
+                    else => value: {
+                        break :value this.simpleToken(.ASSIGN);
                     },
+                } else null,
+                '>' => if (try this.consume()) |c1| switch (c1) {
+                    '\n' => error.IllegalNewLine,
+                    '=' => this.simpleToken(.EQUAL_GREATER),
+                    else => value: {
+                        break :value this.simpleToken(.GREATER);
+                    },
+                } else null,
+                '<' => if (try this.consume()) |c1| switch (c1) {
+                    '\n' => error.IllegalNewLine,
+                    '=' => this.simpleToken(.EQUAL_LESSER),
+                    else => value: {
+                        break :value this.simpleToken(.LESSER);
+                    },
+                } else null,
+                '!' => if (try this.consume()) |c1|  switch (c1) {
+                    '\n' => error.IllegalNewLine,
+                    '=' => this.simpleToken(.DISTINCT),
                 } else null,
                 else => null,
             };
