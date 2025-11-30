@@ -46,8 +46,8 @@ pub fn changeTokenValue(alloc: Allocator, actVal: *TokenValue, val: TokenValue) 
     }
 }
 
-pub fn freeTokenValue(alloc: Allocator, actVal: *TokenValue) void {
-    switch (actVal.*) {
+pub fn freeTokenValue(alloc: Allocator, actVal: TokenValue) void {
+    switch (actVal) {
         .text => |str| alloc.free(str),
         .int => |number| alloc.destroy(number),
         .float => |number| alloc.destroy(number),

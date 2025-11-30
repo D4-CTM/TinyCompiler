@@ -10,10 +10,7 @@ pub fn main() !void {
 
     var buf: [10]u8 = undefined;
     const reader = file.reader(&buf);
-    var lexer = Lexer{
-        .r = reader,
-        .alloc = alloc.allocator()
-    };
+    var lexer = Lexer{ .r = reader, .alloc = alloc.allocator() };
 
     while (try lexer.getNextToken()) |out| {
         switch (out) {
@@ -21,7 +18,10 @@ pub fn main() !void {
                 k.printException();
                 break;
             },
-            .token => |t| t.logValues(),
+            .token => |*t| {
+                t.*.logValues();
+                if (t.value != null) t.freeValue();
+            },
         }
     }
 }

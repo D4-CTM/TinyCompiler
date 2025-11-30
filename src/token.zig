@@ -9,8 +9,8 @@ const assert = std.debug.assert;
 
 fn hashTxt(str: []u8) usize {
     var i: usize = 1;
-    for (str) |c| {
-        i += c;
+    for (str, 1..) |c, idx| {
+        i += idx * c;
     }
     return i;
 }
@@ -106,19 +106,20 @@ pub const Token = struct {
         } else this.value = try values.createTokenValue(this.alloc, tk);
     }
 
-    pub fn freeValue(this: *Token) void {
-        if (this.value) |*val| {
+    pub fn freeValue(this: Token) void {
+        if (this.value) |val| {
             values.freeTokenValue(this.alloc, val);
         }
     }
 
     pub fn logValues(this: Token) void {
         const msg = "\'{s}\' at [{d} | {d}]";
-        if (this.value) |val| switch (val) {
-            .text => |str| log(msg ++ " -> {s}", .{ @tagName(this.kword), this.line, this.pos, str }),
-            .int => |int| log(msg ++ " -> {d}", .{ @tagName(this.kword), this.line, this.pos, int.* }),
-            .float => |float| log(msg ++ " -> {d}", .{ @tagName(this.kword), this.line, this.pos, float.* }),
-        };
-        log(msg, .{ @tagName(this.kword), this.line, this.pos });
+        if (this.value) |val| {
+            switch (val) {
+                .text => |str| log(msg ++ " -> {s}", .{ @tagName(this.kword), this.line, this.pos, str }),
+                .int => |int| log(msg ++ " -> {d}", .{ @tagName(this.kword), this.line, this.pos, int.* }),
+                .float => |float| log(msg ++ " -> {d}", .{ @tagName(this.kword), this.line, this.pos, float.* }),
+            }
+        } else log(msg, .{ @tagName(this.kword), this.line, this.pos });
     }
 };
