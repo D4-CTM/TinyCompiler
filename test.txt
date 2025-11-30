@@ -1,2 +1,5 @@
 int x = 1;
-float  y = 3.14
+float  y = 3.14;
+int z = +23;
+float w = -23.9;
+float negative_w = -23.9;

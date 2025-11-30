@@ -138,21 +138,63 @@ pub const Lexer = struct {
         return ex;
     }
 
+    fn extractText(this: *Lexer, c: u8) !TryToken {
+        var state: TokenState = if (isDigit(c) or c == '-' or c == '+') num_value: {
+            break :num_value .int;
+        } else if (isLetter(c) or c == '_') text_value: {
+            break :text_value .text;
+        } else return this.throwException(error.IllegalCharacter, null);
+
+        var str: String = try String.initCapacity(this.alloc, 2);
+        defer str.deinit();
+        try str.append(c);
+
+        while (try this.peek(1)) |c1| {
+            if (c1 == ' ' or c1 == '\t' or c1 == ';' or c1 == '\n') break;
+
+            this.toss(1);
+            switch (state) {
+                .text => if (!(isAlpha(c1) or c1 == '_')) return this.throwException(error.IllegalCharacter, null) else try str.append(c1),
+                .int => if (!isDigit(c1)) {
+                    if (c1 == '.') {
+                        state = .float;
+                        try str.append(c1);
+                        continue;
+                    }
+                    return this.throwException(error.IllegalCharacter, null);
+                } else try str.append(c1),
+                .float => if (!isDigit(c1)) return this.throwException(error.IllegalCharacter, null) else try str.append(c1),
+            }
+        }
+
+        switch (state) {
+            .int, .float => return this.createTokenValue(.NUMBER, try str.createTokenValue(this.alloc, state)),
+            .text => {
+                if (KeywordEnum.fromText(str.str)) |kw| {
+                    return this.simpleToken(kw);
+                }
+                return this.createTokenValue(.IDENTIFIER, try str.createTokenValue(this.alloc, state));
+            },
+        }
+    }
+
     pub fn getNextToken(this: *Lexer) !?TryToken {
         while (try this.consume()) |c| {
             if (c == ' ' or c == '\t') continue;
             if (c == '\n') {
-                defer {
-                    this.line += 1;
-                    this.pos = 0;
-                }
-                return this.simpleToken(.NEW_LINE);
+                this.line += 1;
+                this.pos = 0;
+                continue;
+                // return this.simpleToken(.NEW_LINE);
             }
 
             return switch (c) {
-                '+', '-', '*', ';', '(', ')', '{', '}' => |c1| this.simpleToken(.fromChar(c1)),
+                '*', ';', '(', ')', '{', '}' => |c1| this.simpleToken(.fromChar(c1)),
                 '"' => try this.extractString(),
-
+                '+', '-' => if (try this.peek(1)) |c1| return switch (c1) {
+                    '1'...'9' => try this.extractText(c),
+                    else => this.simpleToken(.fromChar(c))
+                } else null,
                 '/' => if (try this.peek(1)) |c1| return switch (c1) {
                     '/' => value: {
                         this.toss(1);
@@ -195,45 +237,7 @@ pub const Lexer = struct {
                     },
                     else => this.simpleToken(.NOT),
                 } else null,
-                else => value: {
-                    var state: TokenState = if (isDigit(c)) num_value: {
-                        break :num_value .int;
-                    } else if (isLetter(c) or c == '_') text_value: {
-                        break :text_value .text;
-                    } else break :value this.throwException(error.IllegalCharacter, null);
-
-                    var str: String = try String.initCapacity(this.alloc, 2);
-                    defer str.deinit();
-                    try str.append(c);
-
-                    while (try this.peek(1)) |c1| {
-                        if (c1 == ' ' or c1 == '\t' or c1 == ';' or c1 == '\n') break;
-
-                        this.toss(1);
-                        switch (state) {
-                            .text => if (!isAlpha(c1)) break :value this.throwException(error.IllegalCharacter, null) else try str.append(c1),
-                            .int => if (!isDigit(c1)) {
-                                if (c1 == '.') {
-                                    state = .float;
-                                    try str.append(c1);
-                                    continue;
-                                }
-                                break :value this.throwException(error.IllegalCharacter, null);
-                            } else try str.append(c1),
-                            .float => if (!isDigit(c1)) break :value this.throwException(error.IllegalCharacter, null) else try str.append(c1),
-                        }
-                    }
-
-                    switch (state) {
-                        .int, .float => break :value this.createTokenValue(.NUMBER, try str.createTokenValue(this.alloc, state)),
-                        .text => {
-                            if (KeywordEnum.fromText(str.str)) |kw| {
-                                break :value this.simpleToken(kw);
-                            }
-                            break :value this.createTokenValue(.IDENTIFIER, try str.createTokenValue(this.alloc, state));
-                        },
-                    }
-                },
+                else => try this.extractText(c),
             };
         }
         return null;
