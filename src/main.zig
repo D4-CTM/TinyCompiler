@@ -1,6 +1,5 @@
 const std = @import("std");
 const Lexer = @import("lexer.zig").Lexer;
-const compiler = @import("compiler");
 
 const alloc = std.heap.page_allocator;
 

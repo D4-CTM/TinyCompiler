@@ -14,10 +14,25 @@ const Exception = exception.Exception;
 
 const TryToken = union(enum) { token: Token, exception: Exception };
 
+const page_allocator = std.heap.page_allocator;
+
 pub const Lexer = struct {
     r: Reader,
     pos: usize = 0,
     line: usize = 1,
+
+    fn throwException(this: *Lexer, exType: ExceptionType, msg: ?[]const u8) TryToken {
+        return TryToken{ .exception = Exception{ .err = exType, .line = this.line, .pos = this.pos, .message = msg } };
+    }
+
+    fn simpleToken(this: *Lexer, TKW: Keywords) TryToken {
+        return TryToken{ .token = Token{
+            .line = this.line,
+            .pos = this.pos,
+            .kword = TKW,
+            .alloc = page_allocator,
+        } };
+    }
 
     /// Consumes the next char in the file. Returns null only if at EOF
     fn consume(this: *Lexer) !?u8 {
@@ -79,16 +94,13 @@ pub const Lexer = struct {
         return this.throwException(error.NotClosed, "Comment not closed");
     }
 
-    fn throwException(this: *Lexer, exType: ExceptionType, msg: ?[]const u8) TryToken {
-        return TryToken{ .exception = Exception{ .err = exType, .line = this.line, .pos = this.pos, .message = msg } };
-    }
+    fn identifyComplexToken(this: *Lexer) !?TryToken {
+        while (try this.consume()) |c| { 
+            if (c == ' ' or c == '\t') continue;
 
-    fn simpleToken(this: *Lexer, TKW: Keywords) TryToken {
-        return TryToken{ .token = Token{
-            .line = this.line,
-            .pos = this.pos,
-            .kword = TKW,
-        } };
+
+        }
+        return null;
     }
 
     pub fn getNextToken(this: *Lexer) !?TryToken {
@@ -108,6 +120,7 @@ pub const Lexer = struct {
 
                 '/' => if (try this.peek(1)) |c1| return switch (c1) {
                     '/' => value: {
+                        this.toss(1);
                         if (try this.skipLine() == 0) {
                             break :value null;
                         }
@@ -153,7 +166,7 @@ pub const Lexer = struct {
                     },
                     else => this.simpleToken(.NOT),
                 } else null,
-                else => this.simpleToken(.UNKNOWN),
+                else => try this.identifyComplexToken(),
             };
         }
         return null;
