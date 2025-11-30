@@ -11,10 +11,13 @@ pub fn main() !void {
     var buf: [10]u8 = undefined;
     const reader = file.reader(&buf);
     var lexer = Lexer{
-        .Reader = reader
+        .r = reader
     };
 
-    while (try lexer.getNextToken()) |token| {
-        token.logValues();
+    while (try lexer.getNextToken()) |out| {
+        switch (out) {
+            .exception => |k| k.printException(),
+            .token => |t| t.logValues(),
+        }
     }
 }
