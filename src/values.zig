@@ -3,7 +3,13 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 const assert = std.debug.assert;
 
-pub const TokenValue = union(enum) {
+pub const TokenState = enum {
+    text,
+    int,
+    float
+};
+
+pub const TokenValue = union(TokenState) {
     text: []u8,
     int: *i32,
     float: *f32,

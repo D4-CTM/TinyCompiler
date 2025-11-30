@@ -78,3 +78,16 @@ test "Crate string value" {
         try eqlStr(tk.value.?.text, str);
     }
 }
+
+test "GoTo verification" {
+    var x: u8 = 0;
+
+    const y = test_y: {
+        defer x = 10;
+        while (true) {
+            break :test_y 10;
+        }
+    };
+
+    try eql(x, y);
+}

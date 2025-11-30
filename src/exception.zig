@@ -2,6 +2,7 @@ const logErr = @import("std").log.err;
 
 pub const ExceptionType = error {
     IllegalCharacter,
+    NotImplemented,
     NotClosed,
 };
 

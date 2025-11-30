@@ -7,8 +7,16 @@ const log = std.log.info;
 
 const assert = std.debug.assert;
 
-// Tokens & states
-pub const Keywords = enum(u8) {
+fn hashTxt(str: []u8) usize {
+    var i: usize = 1;
+    for (str) |c| {
+        i += c;
+    }
+    return i;
+}
+
+// Keywords Enum
+pub const KeywordEnum = enum(u8) {
     DIVIDE,
     MULTIPLY,
     ADD,
@@ -27,12 +35,16 @@ pub const Keywords = enum(u8) {
     BLOCK_COMMENT,
 
     ASSIGN,
-    INTEGER, // todo
-    FLOAT, // todo
-    STRING, // todo
+    // Variable type
+    INTEGER,
+    FLOAT,
+    STRING,
+    // Variable content
+    TEXT,
+    NUMBER,
 
-    IF, // todo
-    WHILE, // todo
+    IF,
+    WHILE,
 
     L_BRACE,
     R_BRACE,
@@ -40,30 +52,41 @@ pub const Keywords = enum(u8) {
     R_CURLY_BRACE,
     SEMICOLON,
 
-    IDENTIFIER, // todo
+    IDENTIFIER,
 
     NEW_LINE,
     UNKNOWN,
 
-    pub fn fromChar(c: u8) Keywords {
+    pub fn fromChar(c: u8) KeywordEnum {
         return switch (c) {
-            '{' => Keywords.L_CURLY_BRACE,
-            '}' => Keywords.R_CURLY_BRACE,
-            '(' => Keywords.L_BRACE,
-            ')' => Keywords.R_BRACE,
-            '+' => Keywords.ADD,
-            '-' => Keywords.SUBTRACT,
-            '*' => Keywords.MULTIPLY,
-            ';' => Keywords.SEMICOLON,
-            '\n' => Keywords.NEW_LINE,
-            else => Keywords.UNKNOWN,
+            '{' => KeywordEnum.L_CURLY_BRACE,
+            '}' => KeywordEnum.R_CURLY_BRACE,
+            '(' => KeywordEnum.L_BRACE,
+            ')' => KeywordEnum.R_BRACE,
+            '+' => KeywordEnum.ADD,
+            '-' => KeywordEnum.SUBTRACT,
+            '*' => KeywordEnum.MULTIPLY,
+            ';' => KeywordEnum.SEMICOLON,
+            '\n' => KeywordEnum.NEW_LINE,
+            else => KeywordEnum.UNKNOWN,
+        };
+    }
+
+    pub fn fromText(str: []u8) ?KeywordEnum {
+        return switch (hashTxt(str)) {
+            hashTxt(@constCast("if")) => KeywordEnum.IF,
+            hashTxt(@constCast("while")) => KeywordEnum.WHILE,
+            hashTxt(@constCast("int")) => KeywordEnum.INTEGER,
+            hashTxt(@constCast("float")) => KeywordEnum.FLOAT,
+            hashTxt(@constCast("string")) => KeywordEnum.STRING,
+            else => null,
         };
     }
 };
 
 pub const Token = struct {
     /// Keyword
-    kword: Keywords,
+    kword: KeywordEnum,
     /// What is the value of the token, usually for identifiers or numbers
     value: ?TokenValue = null,
     /// In which line the token lives
