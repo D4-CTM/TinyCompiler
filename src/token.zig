@@ -113,6 +113,12 @@ pub const Token = struct {
     }
 
     pub fn logValues(this: Token) void {
-        log("\'{s}\' at [{d} | {d}] -> {?} ", .{ @tagName(this.kword), this.line, this.pos, this.value });
+        const msg = "\'{s}\' at [{d} | {d}]";
+        if (this.value) |val| switch (val) {
+            .text => |str| log(msg ++ " -> {s}", .{ @tagName(this.kword), this.line, this.pos, str }),
+            .int => |int| log(msg ++ " -> {d}", .{ @tagName(this.kword), this.line, this.pos, int.* }),
+            .float => |float| log(msg ++ " -> {d}", .{ @tagName(this.kword), this.line, this.pos, float.* }),
+        };
+        log(msg, .{ @tagName(this.kword), this.line, this.pos });
     }
 };
